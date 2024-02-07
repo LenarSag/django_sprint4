@@ -7,6 +7,7 @@ from django.views.generic import CreateView, DeleteView, UpdateView
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.urls import reverse_lazy
 from django.core.exceptions import PermissionDenied
+from django.db.models import Count
 
 
 from .models import Post, Category, Comment
@@ -26,11 +27,15 @@ def filter_posts(objects):
 @login_required
 def index(request):
     template = "blog/index.html"
-    posts = filter_posts(Post.objects)
+    posts = filter_posts(
+        Post.objects.annotate(comment_count=Count("comments")).order_by("-pub_date")
+    )
     paginator = Paginator(posts, MAX_POSTS_PER_PAGE)
     page_number = request.GET.get("page", 1)
     page_obj = paginator.get_page(page_number)
     context = {"page_obj": page_obj}
+    # for post in page_obj.object_list:
+    #     post.comment_count = Comment.objects.filter(post=post).count()
 
     return render(request, template, context)
 
@@ -85,7 +90,7 @@ class PostUpdateView(LoginRequiredMixin, UpdateView):
     pk_url_kwarg = "post_id"
 
     def dispatch(self, request, *args, **kwargs):
-        get_object_or_404(Post, pk=kwargs["pk"], author=request.user)
+        get_object_or_404(Post, pk=kwargs.get("post_id"), author=request.user)
         return super().dispatch(request, *args, **kwargs)
 
     def get_success_url(self):
@@ -98,7 +103,7 @@ class PostDeleteView(LoginRequiredMixin, DeleteView):
     pk_url_kwarg = "post_id"
 
     def dispatch(self, request, *args, **kwargs):
-        get_object_or_404(Post, pk=kwargs["pk"], author=request.user)
+        get_object_or_404(Post, pk=kwargs.get("post_id"), author=request.user)
         return super().dispatch(request, *args, **kwargs)
 
     def get_success_url(self):
