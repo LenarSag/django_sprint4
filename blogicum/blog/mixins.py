@@ -1,4 +1,4 @@
-from django.shortcuts import get_object_or_404
+from django.shortcuts import get_object_or_404, redirect
 from django.core.exceptions import PermissionDenied
 from django.urls import reverse_lazy
 
@@ -7,7 +7,9 @@ from blog.models import Post, Comment
 
 class PostMixin:
     def dispatch(self, request, *args, **kwargs):
-        get_object_or_404(Post, pk=kwargs.get("post_id"), author=request.user)
+        post = get_object_or_404(Post, pk=kwargs.get("post_id"))
+        if self.request.user != post.author:
+            return redirect('blog:post_detail', self.kwargs.get("post_id"))
         return super().dispatch(request, *args, **kwargs)
 
 

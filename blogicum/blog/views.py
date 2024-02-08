@@ -146,7 +146,9 @@ class CommentDeleteView(CommentMixin, LoginRequiredMixin, DeleteView):
 def user_profile(request, username):
     template = "blog/profile.html"
     profile = get_object_or_404(User, username=username)
-    posts = Post.objects.filter(author=profile)
+    posts = profile.posts.annotate(comment_count=Count("comments")).order_by(
+        "-pub_date"
+    )
     paginator = Paginator(posts, MAX_POSTS_PER_PAGE)
     page_obj = paginator.get_page(request.GET.get("page"))
     context = {"page_obj": page_obj, "profile": profile}
