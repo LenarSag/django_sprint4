@@ -94,7 +94,10 @@ class PostUpdateView(PostMixin, LoginRequiredMixin, UpdateView):
     pk_url_kwarg = "post_id"
 
     def get_success_url(self):
-        return reverse_lazy("blog:post_detail", kwargs={"post_id": self.object.pk})
+        return reverse_lazy(
+            "blog:post_detail",
+            kwargs={"post_id": self.object.pk}
+        )
 
 
 class PostDeleteView(PostMixin, LoginRequiredMixin, DeleteView):
