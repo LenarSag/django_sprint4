@@ -72,6 +72,8 @@ class Post(PublishedAndCreatedModel):
         verbose_name="Категория",
     )
 
+    image = models.ImageField("Картинка", blank=True)
+
     class Meta:
         verbose_name = "публикация"
         verbose_name_plural = "Публикации"
@@ -82,7 +84,7 @@ class Post(PublishedAndCreatedModel):
 
 
 class Comment(models.Model):
-    text = models.TextField("Текст комментария")
+    text = models.TextField("Текст комментария", max_length=140)
     post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name="comments")
     author = models.ForeignKey(
         User,

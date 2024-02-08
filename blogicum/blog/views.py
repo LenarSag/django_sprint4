@@ -6,13 +6,13 @@ from django.contrib.auth.decorators import login_required
 from django.views.generic import CreateView, DeleteView, UpdateView
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.urls import reverse_lazy
-from django.core.exceptions import PermissionDenied
 from django.db.models import Count
 
 
-from .models import Post, Category, Comment
-from .forms import PostForm, CommentForm
+from blog.models import Post, Category, Comment
+from blog.forms import PostForm, CommentForm
 from blog.constants import MAX_POSTS_PER_PAGE
+from blog.mixins import PostMixin, CommentMixin
 
 
 User = get_user_model()
@@ -34,8 +34,6 @@ def index(request):
     page_number = request.GET.get("page", 1)
     page_obj = paginator.get_page(page_number)
     context = {"page_obj": page_obj}
-    # for post in page_obj.object_list:
-    #     post.comment_count = Comment.objects.filter(post=post).count()
 
     return render(request, template, context)
 
@@ -54,6 +52,7 @@ def post_detail(request, post_id):
     return render(request, template, context)
 
 
+@login_required
 def category_posts(request, category_slug):
     template = "blog/category.html"
     category = get_object_or_404(Category, slug=category_slug, is_published=True)
@@ -63,10 +62,6 @@ def category_posts(request, category_slug):
     context = {"category": category, "page_obj": page_obj}
 
     return render(request, template, context)
-
-
-class PostMixin:
-    pass
 
 
 class PostCreateView(LoginRequiredMixin, CreateView):
@@ -79,35 +74,24 @@ class PostCreateView(LoginRequiredMixin, CreateView):
         return super().form_valid(form)
 
     def get_success_url(self):
-        # return reverse_lazy("blog:profile", kwargs={"username": self.request.user})
-        return reverse_lazy("blog:index")
+        return reverse_lazy("blog:profile", kwargs={"username": self.request.user})
 
 
-class PostUpdateView(LoginRequiredMixin, UpdateView):
+class PostUpdateView(PostMixin, LoginRequiredMixin, UpdateView):
     model = Post
     form_class = PostForm
     template_name = "blog/create.html"
     pk_url_kwarg = "post_id"
 
-    def dispatch(self, request, *args, **kwargs):
-        get_object_or_404(Post, pk=kwargs.get("post_id"), author=request.user)
-        return super().dispatch(request, *args, **kwargs)
-
     def get_success_url(self):
         return reverse_lazy("blog:post_detail", kwargs={"post_id": self.object.pk})
 
 
-class PostDeleteView(LoginRequiredMixin, DeleteView):
+class PostDeleteView(PostMixin, LoginRequiredMixin, DeleteView):
     model = Post
     template_name = "blog/create.html"
     pk_url_kwarg = "post_id"
-
-    def dispatch(self, request, *args, **kwargs):
-        get_object_or_404(Post, pk=kwargs.get("post_id"), author=request.user)
-        return super().dispatch(request, *args, **kwargs)
-
-    def get_success_url(self):
-        return reverse_lazy("blog:index")
+    success_url = reverse_lazy("blog:index")
 
 
 class CommentCreateView(LoginRequiredMixin, CreateView):
@@ -132,41 +116,20 @@ class CommentCreateView(LoginRequiredMixin, CreateView):
         )
 
 
-class CommentUpdateView(LoginRequiredMixin, UpdateView):
+class CommentUpdateView(CommentMixin, LoginRequiredMixin, UpdateView):
     model = Comment
     form_class = CommentForm
     template_name = "blog/comment.html"
     pk_url_kwarg = "comment_id"
 
-    def dispatch(self, request, *args, **kwargs):
-        instance = get_object_or_404(Comment, pk=kwargs.get("comment_id"))
-        if request.user != instance.author:
-            return redirect("blog:post_detail", self.kwargs.get("post_id"))
-        return super().dispatch(request, *args, **kwargs)
 
-    def get_success_url(self):
-        return reverse_lazy(
-            "blog:post_detail", kwargs={"post_id": self.kwargs.get("post_id")}
-        )
-
-
-class CommentDeleteView(LoginRequiredMixin, DeleteView):
+class CommentDeleteView(CommentMixin, LoginRequiredMixin, DeleteView):
     model = Comment
     pk_url_kwarg = "comment_id"
     template_name = "blog/comment.html"
 
-    def dispatch(self, request, *args, **kwargs):
-        comment = get_object_or_404(Comment, pk=kwargs.get("comment_id"))
-        if self.request.user != comment.author:
-            raise PermissionDenied
-        return super().dispatch(request, *args, **kwargs)
 
-    def get_success_url(self):
-        return reverse_lazy(
-            "blog:post_detail", kwargs={"post_id": self.kwargs.get("post_id")}
-        )
-
-
+@login_required
 def user_profile(request, username):
     template = "blog/profile.html"
     profile = get_object_or_404(User, username=username)
