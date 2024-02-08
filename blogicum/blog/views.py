@@ -20,7 +20,9 @@ User = get_user_model()
 
 def filter_posts(objects):
     return objects.filter(
-        is_published=True, category__is_published=True, pub_date__lte=timezone.now()
+        is_published=True,
+        category__is_published=True,
+        pub_date__lte=timezone.now()
     ).select_related("author", "location", "category")
 
 
@@ -28,7 +30,8 @@ def filter_posts(objects):
 def index(request):
     template = "blog/index.html"
     posts = filter_posts(
-        Post.objects.annotate(comment_count=Count("comments")).order_by("-pub_date")
+        Post.objects.annotate(comment_count=Count("comments"))
+            .order_by("-pub_date")
     )
     paginator = Paginator(posts, MAX_POSTS_PER_PAGE)
     page_number = request.GET.get("page", 1)
@@ -55,7 +58,11 @@ def post_detail(request, post_id):
 @login_required
 def category_posts(request, category_slug):
     template = "blog/category.html"
-    category = get_object_or_404(Category, slug=category_slug, is_published=True)
+    category = get_object_or_404(
+        Category,
+        slug=category_slug,
+        is_published=True
+    )
     post_list = filter_posts(category.posts)
     paginator = Paginator(post_list, MAX_POSTS_PER_PAGE)
     page_obj = paginator.get_page(request.GET.get("page"))
@@ -74,7 +81,10 @@ class PostCreateView(LoginRequiredMixin, CreateView):
         return super().form_valid(form)
 
     def get_success_url(self):
-        return reverse_lazy("blog:profile", kwargs={"username": self.request.user})
+        return reverse_lazy(
+            "blog:profile",
+            kwargs={"username": self.request.user}
+        )
 
 
 class PostUpdateView(PostMixin, LoginRequiredMixin, UpdateView):
