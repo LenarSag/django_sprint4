@@ -151,7 +151,6 @@ class CommentDeleteView(CommentMixin, LoginRequiredMixin, DeleteView):
     template_name = "blog/comment.html"
 
 
-@login_required
 def user_profile(request, username):
     template = "blog/profile.html"
     profile = get_object_or_404(User, username=username)
