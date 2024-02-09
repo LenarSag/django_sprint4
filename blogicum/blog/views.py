@@ -7,6 +7,7 @@ from django.views.generic import CreateView, DeleteView, UpdateView
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.urls import reverse_lazy
 from django.db.models import Count
+from django.http import Http404
 
 
 from blog.models import Post, Category, Comment
@@ -44,10 +45,18 @@ def index(request):
 @login_required
 def post_detail(request, post_id):
     template = "blog/detail.html"
-    post = get_object_or_404(
-        filter_posts(Post.objects),
-        pk=post_id,
-    )
+    post = get_object_or_404(Post, pk=post_id)
+    if (
+        request.user != post.author
+        and any(
+            (
+                post.pub_date > timezone.now(),
+                not post.is_published,
+                not post.category.is_published,
+            )
+        )
+    ):
+        raise Http404
     form = CommentForm()
     comments = Comment.objects.filter(post_id=post_id)
     context = {"post": post, "form": form, "comments": comments}
