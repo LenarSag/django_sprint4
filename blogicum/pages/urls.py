@@ -11,6 +11,6 @@ urlpatterns = [
 ]
 
 
-handler403 = 'pages.views.custom_403'
-handler404 = 'pages.views.custom_404'
-handler500 = 'pages.views.custom_500'
+handler403 = 'pages.views.csrf_failure'
+handler404 = 'pages.views.page_not_found'
+handler500 = 'pages.views.internal_server_error'

@@ -150,3 +150,8 @@ media/
 
 sent_emails/
 
+# db dumps
+db.json
+
+# zip
+django4.zip

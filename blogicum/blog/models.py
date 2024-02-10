@@ -19,8 +19,6 @@ class Category(PublishedAndCreatedModel):
             "латиницы, цифры, дефис и подчёркивание."
         ),
     )
-    verbose_name = "категория"
-    verbose_name_plural = "Категории"
 
     class Meta:
         verbose_name = "категория"
