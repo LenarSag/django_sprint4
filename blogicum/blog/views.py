@@ -9,7 +9,6 @@ from django.urls import reverse_lazy
 from django.db.models import Count
 from django.http import Http404
 
-
 from blog.models import Post, Category, Comment
 from blog.forms import PostForm, CommentForm
 from blog.constants import MAX_POSTS_PER_PAGE
@@ -27,6 +26,12 @@ def filter_posts(objects):
     ).select_related("author", "location", "category")
 
 
+def get_page_obj(items_to_paginate, request):
+    paginator = Paginator(items_to_paginate, MAX_POSTS_PER_PAGE)
+    page_number = request.GET.get("page")
+    return paginator.get_page(page_number)
+
+
 @login_required
 def index(request):
     template = "blog/index.html"
@@ -34,9 +39,7 @@ def index(request):
         Post.objects.annotate(comment_count=Count("comments"))
             .order_by("-pub_date")
     )
-    paginator = Paginator(posts, MAX_POSTS_PER_PAGE)
-    page_number = request.GET.get("page", 1)
-    page_obj = paginator.get_page(page_number)
+    page_obj = get_page_obj(posts, request)
     context = {"page_obj": page_obj}
 
     return render(request, template, context)
@@ -46,19 +49,16 @@ def index(request):
 def post_detail(request, post_id):
     template = "blog/detail.html"
     post = get_object_or_404(Post, pk=post_id)
-    if (
-        request.user != post.author
-        and any(
+    if request.user != post.author and any(
             (
                 post.pub_date > timezone.now(),
                 not post.is_published,
                 not post.category.is_published,
             )
-        )
     ):
         raise Http404
     form = CommentForm()
-    comments = Comment.objects.filter(post_id=post_id)
+    comments = Comment.objects.filter(post_id=post_id).select_related('post')
     context = {"post": post, "form": form, "comments": comments}
 
     return render(request, template, context)
@@ -73,8 +73,7 @@ def category_posts(request, category_slug):
         is_published=True
     )
     post_list = filter_posts(category.posts)
-    paginator = Paginator(post_list, MAX_POSTS_PER_PAGE)
-    page_obj = paginator.get_page(request.GET.get("page"))
+    page_obj = get_page_obj(post_list, request)
     context = {"category": category, "page_obj": page_obj}
 
     return render(request, template, context)
@@ -97,11 +96,6 @@ class PostCreateView(LoginRequiredMixin, CreateView):
 
 
 class PostUpdateView(PostMixin, LoginRequiredMixin, UpdateView):
-    model = Post
-    form_class = PostForm
-    template_name = "blog/create.html"
-    pk_url_kwarg = "post_id"
-
     def get_success_url(self):
         return reverse_lazy(
             "blog:post_detail",
@@ -110,45 +104,37 @@ class PostUpdateView(PostMixin, LoginRequiredMixin, UpdateView):
 
 
 class PostDeleteView(PostMixin, LoginRequiredMixin, DeleteView):
-    model = Post
-    template_name = "blog/create.html"
-    pk_url_kwarg = "post_id"
     success_url = reverse_lazy("blog:index")
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        post = get_object_or_404(Post, pk=self.kwargs.get("post_id"))
+        context['object'] = post
+        return context
 
-class CommentCreateView(LoginRequiredMixin, CreateView):
+
+class CommentCreateView(CommentMixin, LoginRequiredMixin, CreateView):
     post_instance = None
-    model = Comment
-    form_class = CommentForm
-    template_name = "blog/comment.html"
     pk_url_kwarg = "post_id"
 
-    def dispatch(self, request, *args, **kwargs):
-        self.post_instance = get_object_or_404(Post, pk=kwargs.get("post_id"))
-        return super().dispatch(request, *args, **kwargs)
-
     def form_valid(self, form):
+        post_instance = get_object_or_404(Post, pk=self.kwargs.get("post_id"))
         form.instance.author = self.request.user
-        form.instance.post = self.post_instance
+        form.instance.post = post_instance
         return super().form_valid(form)
 
     def get_success_url(self):
         return reverse_lazy(
-            "blog:post_detail", kwargs={"post_id": self.post_instance.pk}
+            "blog:post_detail", kwargs={"post_id": self.kwargs.get("post_id")}
         )
 
 
 class CommentUpdateView(CommentMixin, LoginRequiredMixin, UpdateView):
-    model = Comment
-    form_class = CommentForm
-    template_name = "blog/comment.html"
-    pk_url_kwarg = "comment_id"
+    pass
 
 
 class CommentDeleteView(CommentMixin, LoginRequiredMixin, DeleteView):
-    model = Comment
-    pk_url_kwarg = "comment_id"
-    template_name = "blog/comment.html"
+    pass
 
 
 def user_profile(request, username):
@@ -157,8 +143,9 @@ def user_profile(request, username):
     posts = profile.posts.annotate(comment_count=Count("comments")).order_by(
         "-pub_date"
     )
-    paginator = Paginator(posts, MAX_POSTS_PER_PAGE)
-    page_obj = paginator.get_page(request.GET.get("page"))
+    if request.user.username != username:
+        posts = posts.filter(is_published=True)
+    page_obj = get_page_obj(posts, request)
     context = {"page_obj": page_obj, "profile": profile}
 
     return render(request, template, context)
