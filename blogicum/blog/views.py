@@ -107,9 +107,10 @@ class PostDeleteView(PostMixin, LoginRequiredMixin, DeleteView):
     success_url = reverse_lazy("blog:index")
 
     def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        post = get_object_or_404(Post, pk=self.kwargs.get("post_id"))
-        context['object'] = post
+        context = super().get_context_data(**kwargs) 
+        instance = get_object_or_404(Post, pk=self.kwargs.get("post_id"))
+        form = PostForm(instance=instance)
+        context["form"] = form
         return context
 
 
@@ -144,7 +145,7 @@ def user_profile(request, username):
         "-pub_date"
     )
     if request.user.username != username:
-        posts = posts.filter(is_published=True)
+        posts = filter_posts(posts)
     page_obj = get_page_obj(posts, request)
     context = {"page_obj": page_obj, "profile": profile}
 
