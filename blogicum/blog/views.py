@@ -107,7 +107,7 @@ class PostDeleteView(PostMixin, LoginRequiredMixin, DeleteView):
     success_url = reverse_lazy("blog:index")
 
     def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs) 
+        context = super().get_context_data(**kwargs)
         instance = get_object_or_404(Post, pk=self.kwargs.get("post_id"))
         form = PostForm(instance=instance)
         context["form"] = form
